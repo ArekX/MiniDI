@@ -19,7 +19,7 @@ $injector = \ArekX\MiniDI\Injector::create([
 
 $testObject = $injector->get('testObject');
 
-echo $testObject->dependsOnTestClass2 instanceof TestClass2 ? 'Success!' : 'Fail'; // Outputs Success!
+echo $testObject->dependsOnTestClass2 instanceof TestClass2 ? 'Success!' : 'Fail'; // Outputs: Success!
 ```
 
 ## Recursive dependencies are also automatically resolved
@@ -43,7 +43,7 @@ $injector = \ArekX\MiniDI\Injector::create([
 
 $testObject = $injector->get('testObject');
 
-echo $testObject->dependsOnTestClass2->dependsOnTestClass3 instanceof TestClass3 ? 'Success!' : 'Fail'; // Outputs Success!
+echo $testObject->dependsOnTestClass2->dependsOnTestClass3 instanceof TestClass3 ? 'Success!' : 'Fail'; // Outputs: Success!
 ```
 
 ## Without use of `\ArekX\MiniDI\InjectableObject` for cases when you need to wrap classes which do not usually support injection.
@@ -69,12 +69,99 @@ $injector = \ArekX\MiniDI\Injector::create([
 
 $testObject = $injector->get('testObject');
 
-echo $testObject->dependsOnTestClass2 instanceof TestClass2 ? 'Success!' : 'Fail'; // Outputs Success!
-echo $testObject->dependsOnTestClass2->additionalDependentParam instanceof TestClass3 ? 'Success!' : 'Fail'; // Outputs Success!
+echo $testObject->dependsOnTestClass2 instanceof TestClass2 ? 'Success!' : 'Fail'; // Outputs: Success!
+echo $testObject->dependsOnTestClass2->additionalDependentParam instanceof TestClass3 ? 'Success!' : 'Fail'; // Outputs: Success!
 ```
 
-If you don't want or cannot use `\ArekX\MiniDI\InjectableTrait` for some reason. You can simply implement constructor interface by `\ArekX\MiniDI\Injectable` 
+If you don't want or cannot use `\ArekX\MiniDI\InjectableTrait` for some reason. You can simply implement constructor interface `\ArekX\MiniDI\Injectable` 
 and get dependencies yourself via `$injector->get('dependency')`.
+
+## Shared objects
+
+Objects can be shared easily across diffent objects by specifying `'shared' => true`.
+
+```php
+class TestClass1 extends \ArekX\MiniDI\InjectableObject {
+	public $testClass2;
+	public $sharedClass3;
+}
+
+class TestClass2 extends \ArekX\MiniDI\InjectableObject {
+	public $sharedClass3;
+}
+
+class TestClass3 extends \ArekX\MiniDI\InjectableObject {}
+
+$injector = \ArekX\MiniDI\Injector::create([
+	'testObject' => 'TestClass1',
+	'testClass2' => 'TestClass2',
+	'sharedClass3' => ['class' => TestClass3', 'shared' => true],
+]);
+
+$testObject = $injector->get('testObject');
+
+echo $testObject->sharedClass3 === $testObject->testClass2->sharedClass3 ? 'Same shared classes!' : 'Fail'; // Outputs: Same shared classes!
+```
+
+## Custom Config
+
+You can specify which parameters will be injected yourself by setting `$injectables` property in your class.
+
+```php
+class TestClass1 extends \ArekX\MiniDI\InjectableObject {
+	public $testClass2;
+	public $mappedParam;
+	public $notInjectedParameter;
+
+	protected $injectables = [
+		'testClass2',
+		'mappedParam' => 'sharedClass3' // This will take 'sharedClass3' from injector and put it into $mapppedParam of this class.
+	];
+}
+
+class TestClass2 extends \ArekX\MiniDI\InjectableObject {
+	public $sharedClass3;
+}
+
+class TestClass3 extends \ArekX\MiniDI\InjectableObject {}
+
+$injector = \ArekX\MiniDI\Injector::create([
+	'testObject' => 'TestClass1',
+	'testClass2' => 'TestClass2',
+	'sharedClass3' => ['class' => TestClass3', 'shared' => true],
+]);
+
+$testObject = $injector->get('testObject');
+
+echo $testObject->mappedParam === $testObject->testClass2->sharedClass3 ? 'Same shared classes!' : 'Fail'; // Outputs: Same shared classes!
+```
+
+You can also set specific custom configuration for configuring one injected object.
+
+```php
+class TestClass extends \ArekX\MiniDI\InjectableObject {
+	public $class2;
+	public $customParam;
+
+	protected $injectables = [
+		'class2'
+	];
+}
+
+class TestClass2 extends \ArekX\MiniDI\InjectableObject {}
+
+$injector = \ArekX\MiniDI\Injector::create([
+	'testObject' => [
+		'class' => TestClass',
+		'config' => [
+			'customParam' => "Test String"
+		]
+	],
+	'class2' => 'TestClass2'
+]);
+
+echo $injector->get('testObject')->customParam; // Outputs: Test String
+```
 
 # Installation
 
