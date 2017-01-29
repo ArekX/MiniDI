@@ -1,0 +1,1 @@
+php phpunit.phar -v --bootstrap ./TestBootstrap.php tests

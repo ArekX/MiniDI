@@ -1,31 +1,3 @@
-# MiniDI
-Minimal PHP Dependency Injector
-
-# Installation
-
-Install via composer
-
-	composer require arekx/minidi "*"
-
-# Testing
-
-To run tests in injector you will need phpunit.phar in the directory of the project. 
-Please run following command in cloned folder:
-
-### Windows
-
-In Command Prompt Run:
-
-	test.bat
-
-### Linux
-
-In Terminal Run:
-
-	./test.sh
-
-# License
-
 MIT License
 
 Copyright (c) 2017 Aleksandar Panic
