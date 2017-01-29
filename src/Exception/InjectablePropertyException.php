@@ -1,6 +1,6 @@
 <?php
 
-namespace ArekX\MicroDI\Exceptions;
+namespace ArekX\MiniDI\Exception;
 
 class InjectablePropertyException extends InjectorException 
 {

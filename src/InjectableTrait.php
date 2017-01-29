@@ -2,6 +2,9 @@
 
 namespace ArekX\MiniDI;
 
+use ArekX\MiniDI\Exception\InjectablePropertyException;
+use ArekX\MiniDI\Exception\InvalidConfigurationException;
+
 trait InjectableTrait
 {
 	protected $reflection = null;
@@ -54,7 +57,7 @@ trait InjectableTrait
 
        foreach ($config as $key => $value) {
            if (!$this->reflection->hasProperty($key) || !$this->reflection->getProperty($key)->isPublic()) {
-               throw new InvalidConfigurationException($reflection, $key);
+               throw new InvalidConfigurationException($this->reflection, $key);
            }
 
            $this->{$key} = $value;

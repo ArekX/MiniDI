@@ -1,6 +1,6 @@
 <?php
 
-namespace ArekX\MicroDI\Exceptions;
+namespace ArekX\MiniDI\Exception;
 
 class InvalidConfigurationException extends InjectorException 
 {
