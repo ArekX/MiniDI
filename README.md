@@ -46,6 +46,36 @@ $testObject = $injector->get('testObject');
 echo $testObject->dependsOnTestClass2->dependsOnTestClass3 instanceof TestClass3 ? 'Success!' : 'Fail'; // Outputs Success!
 ```
 
+## Without use of `\ArekX\MiniDI\InjectableObject` for cases when you need to wrap classes which do not usually support injection.
+
+```php
+class TestClass1 extends \ArekX\MiniDI\InjectableObject {
+	public $dependsOnTestClass2;
+}
+
+class TestClass2 extends SomeStandardClass implements \ArekX\MiniDI\Injectable {
+	use \ArekX\MiniDI\InjectableTrait;
+
+	public $additionalDependentParam;
+}
+
+class TestClass3 extends \ArekX\MiniDI\InjectableObject {}
+
+$injector = \ArekX\MiniDI\Injector::create([
+	'testObject' => 'TestClass1',
+	'dependsOnTestClass2' => 'TestClass2',
+	'additionalDependentParam' => 'TestClass3'
+]);
+
+$testObject = $injector->get('testObject');
+
+echo $testObject->dependsOnTestClass2 instanceof TestClass2 ? 'Success!' : 'Fail'; // Outputs Success!
+echo $testObject->dependsOnTestClass2->additionalDependentParam instanceof TestClass3 ? 'Success!' : 'Fail'; // Outputs Success!
+```
+
+If you don't want or cannot use `\ArekX\MiniDI\InjectableTrait` for some reason. You can simply implement constructor interface by `\ArekX\MiniDI\Injectable` 
+and get dependencies yourself via `$injector->get('dependency')`.
+
 # Installation
 
 Install via composer
