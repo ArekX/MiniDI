@@ -1,5 +1,5 @@
 {
-    "name": "ArekX/MiniDI",
+    "name": "arekx/mini-di",
     "description": "Minimal PHP Dependency Injector",
     "type": "library",
     "license": "MIT License",
