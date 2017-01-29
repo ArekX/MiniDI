@@ -58,8 +58,6 @@ class TestClass1 extends \ArekX\MiniDI\InjectableObject {
 }
 
 class TestClass2 extends SomeStandardClass implements \ArekX\MiniDI\Injectable {
-	use \ArekX\MiniDI\InjectableTrait;
-
 	public $additionalDependentParam;
 }
 
@@ -76,9 +74,6 @@ $testObject = $injector->get('testObject');
 echo $testObject->dependsOnTestClass2 instanceof TestClass2 ? 'Success!' : 'Fail'; // Outputs: Success!
 echo $testObject->dependsOnTestClass2->additionalDependentParam instanceof TestClass3 ? 'Success!' : 'Fail'; // Outputs: Success!
 ```
-
-If you don't want or cannot use `\ArekX\MiniDI\InjectableTrait` for some reason. You can simply implement constructor interface `\ArekX\MiniDI\Injectable` 
-and get dependencies yourself via `$injector->get('dependency')`.
 
 ## Shared objects
 

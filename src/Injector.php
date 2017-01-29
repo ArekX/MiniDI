@@ -4,6 +4,8 @@ namespace ArekX\MiniDI;
 
 use ArekX\MiniDI\Exception\CircularDependencyException;
 use ArekX\MiniDI\Exception\InjectableNotFoundException;
+use ArekX\MiniDI\Exception\InjectablePropertyException;
+use ArekX\MiniDI\Exception\InvalidConfigurationException;
 
 class Injector
 {
@@ -98,7 +100,7 @@ class Injector
 		$oldStack = $injector->injectStack;
 		$injector->injectStack = $this->injectStack;
 		
-		$object = new $class($injector, $this->assignments[$key]['config']); 
+		$object = $this->makeInstance($class, $key, $injector);
 
 		$injector->injectStack = $oldStack;
 		$this->popInjectStack();
@@ -108,6 +110,44 @@ class Injector
 		}
 
 		return $object;
+	}
+
+	protected function makeInstance($class, $key, $injector)
+	{
+		$config = $this->assignments[$key]['config'];
+		$instance = new $class($config); 
+
+		foreach ($config as $key => $value) {
+			if (!property_exists($instance, $key)) {
+				throw new InvalidConfigurationException($config, "Property {$key} not found in {$class}.");
+			}
+
+			$instance->{$key} = $value;
+		}
+
+		$injectables = $instance->getInjectables();
+
+		if ($injectables === null) {
+			$injectables = array_keys(get_object_vars($instance));
+		}
+
+		foreach ($injectables as $property => $injectorProperty) {
+			if (is_numeric($property)) {
+				$property = $injectorProperty;
+			}
+
+			$methodName = 'set' . ucfirst($property);
+
+			if (method_exists($instance, $methodName)) {
+				$instance->{$methodName}($injector->get($injectorProperty));
+			} elseif (property_exists($instance, $property)) {
+				$instance->{$property} = $injector->get($injectorProperty);
+			} else {
+				throw new InjectablePropertyException($property);
+			}
+		}
+
+		return $instance;
 	}
 
 	public function share($key)

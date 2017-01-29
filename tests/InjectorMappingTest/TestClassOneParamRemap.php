@@ -5,7 +5,9 @@ class TestClassOneParamRemap extends \ArekX\MiniDI\InjectableObject {
 	public $differentParam;
 	public $notDependentParam = "I AM NOT SET";
 
-	protected $injectables = [
-		'differentParam' => 'dependentParam'
-	];
+	public function getInjectables() {
+		return  [
+			'differentParam' => 'dependentParam'
+		];
+	}
 }

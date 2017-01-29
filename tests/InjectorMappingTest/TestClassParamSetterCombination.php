@@ -7,14 +7,17 @@ class TestClassParamSetterCombination extends \ArekX\MiniDI\InjectableObject {
 	public $differentSetterParam;
 	public $notDependentParam = "I AM NOT SET";
 
-	protected $injectables = [
-		'differentParam' => 'dependentParam',
-		'directMapParam' => 'dependentParam',
-		'setterParam' => 'dependentParam'
-	];
-
 	public function setSetterParam($value)
 	{
 		$this->differentSetterParam = $value;
+	}
+
+	public function getInjectables()
+	{
+		return [
+			'differentParam' => 'dependentParam',
+			'directMapParam' => 'dependentParam',
+			'setterParam' => 'dependentParam'
+		];
 	}
 }

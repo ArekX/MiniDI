@@ -4,5 +4,8 @@ namespace ArekX\MiniDI;
 
 abstract class InjectableObject implements Injectable
 {
-	use InjectableTrait;
+	public function getInjectables()
+	{
+		return null;
+	}
 }
