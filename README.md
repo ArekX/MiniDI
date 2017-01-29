@@ -1,6 +1,51 @@
 # MiniDI
 Minimal PHP Dependency Injector
 
+# Usage
+
+## Simple usage
+
+```php
+class TestClass1 extends \ArekX\MiniDI\InjectableObject {
+	public $dependsOnTestClass2;
+}
+
+class TestClass2 extends \ArekX\MiniDI\InjectableObject {}
+
+$injector = \ArekX\MiniDI\Injector::create([
+	'testObject' => 'TestClass1',
+	'dependsOnTestClass2' => 'TestClass2'
+]);
+
+$testObject = $injector->get('testObject');
+
+echo $testObject->dependsOnTestClass2 instanceof TestClass2 ? 'Success!' : 'Fail'; // Outputs Success!
+```
+
+## Recursive dependencies are also automatically resolved
+
+```php
+class TestClass1 extends \ArekX\MiniDI\InjectableObject {
+	public $dependsOnTestClass2;
+}
+
+class TestClass2 extends \ArekX\MiniDI\InjectableObject {
+	public $dependsOnTestClass3;
+}
+
+class TestClass3 extends \ArekX\MiniDI\InjectableObject {}
+
+$injector = \ArekX\MiniDI\Injector::create([
+	'testObject' => 'TestClass1',
+	'dependsOnTestClass2' => 'TestClass2',
+	'dependsOnTestClass3' => 'TestClass3',
+]);
+
+$testObject = $injector->get('testObject');
+
+echo $testObject->dependsOnTestClass2->dependsOnTestClass3 instanceof TestClass3 ? 'Success!' : 'Fail'; // Outputs Success!
+```
+
 # Installation
 
 Install via composer
