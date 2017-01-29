@@ -5,7 +5,7 @@ Minimal PHP Dependency Injector
 
 Install via composer
 
-	composer require arekx/minidi "*"
+	composer require arekx/mini-di
 
 # Testing
 
