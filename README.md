@@ -59,6 +59,13 @@ class TestClass1 extends \ArekX\MiniDI\InjectableObject {
 
 class TestClass2 extends SomeStandardClass implements \ArekX\MiniDI\Injectable {
 	public $additionalDependentParam;
+
+	public function getInjectables()
+	{
+		// When null is returned, injector searches for public params in this instance.
+		// If you do not need any parameters to be injected then write `return []`.
+		return null;
+	}
 }
 
 class TestClass3 extends \ArekX\MiniDI\InjectableObject {}
