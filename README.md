@@ -95,7 +95,7 @@ class TestClass3 extends \ArekX\MiniDI\InjectableObject {}
 $injector = \ArekX\MiniDI\Injector::create([
 	'testObject' => 'TestClass1',
 	'testClass2' => 'TestClass2',
-	'sharedClass3' => ['class' => TestClass3', 'shared' => true],
+	'sharedClass3' => ['class' => 'TestClass3', 'shared' => true],
 ]);
 
 $testObject = $injector->get('testObject');
@@ -128,7 +128,7 @@ class TestClass3 extends \ArekX\MiniDI\InjectableObject {}
 $injector = \ArekX\MiniDI\Injector::create([
 	'testObject' => 'TestClass1',
 	'testClass2' => 'TestClass2',
-	'sharedClass3' => ['class' => TestClass3', 'shared' => true],
+	'sharedClass3' => ['class' => 'TestClass3', 'shared' => true],
 ]);
 
 $testObject = $injector->get('testObject');
@@ -152,7 +152,7 @@ class TestClass2 extends \ArekX\MiniDI\InjectableObject {}
 
 $injector = \ArekX\MiniDI\Injector::create([
 	'testObject' => [
-		'class' => TestClass',
+		'class' => 'TestClass',
 		'config' => [
 			'customParam' => "Test String"
 		]
