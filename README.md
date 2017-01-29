@@ -1,6 +1,10 @@
 # MiniDI
 Minimal PHP Dependency Injector
 
+# Active Development
+
+This library is currently in active development and not ready for use. Expect bugs.
+
 # Usage
 
 ## Simple usage
