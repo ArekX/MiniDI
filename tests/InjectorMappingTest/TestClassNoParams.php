@@ -1,7 +1,7 @@
 <?php
 namespace InjectorMappingTest;
 
-class TestClassNoParams extends \ArekX\MiniDI\InjectableObject {
+class TestClassNoParams implements \ArekX\MiniDI\Injectable {
 	public $notDependencyParam = "test";
 	
 	public function getInjectables() {

@@ -1,7 +1,7 @@
 <?php
 namespace InjectorTest;
 
-class TestClass1Param extends \ArekX\MiniDI\InjectableObject
+class TestClass1Param
 {
 	public $injectParam;
 }

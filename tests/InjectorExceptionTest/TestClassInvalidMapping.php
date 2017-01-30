@@ -1,7 +1,7 @@
 <?php
 namespace InjectorExceptionTest;
 
-class TestClassInvalidMapping extends \ArekX\MiniDI\InjectableObject
+class TestClassInvalidMapping implements \ArekX\MiniDI\Injectable
 {
 	public function getInjectables()
 	{

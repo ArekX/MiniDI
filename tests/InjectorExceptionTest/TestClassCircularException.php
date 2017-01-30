@@ -1,7 +1,7 @@
 <?php
 namespace InjectorExceptionTest;
 
-class TestClassCircularException extends \ArekX\MiniDI\InjectableObject
+class TestClassCircularException
 {
 	public $circularParam;
 }

@@ -10,11 +10,11 @@ This library is currently in active development and not ready for use. Expect bu
 ## Simple usage
 
 ```php
-class TestClass1 extends \ArekX\MiniDI\InjectableObject {
+class TestClass1 {
 	public $dependsOnTestClass2;
 }
 
-class TestClass2 extends \ArekX\MiniDI\InjectableObject {}
+class TestClass2 {}
 
 $injector = \ArekX\MiniDI\Injector::create([
 	'testObject' => 'TestClass1',
@@ -29,15 +29,15 @@ echo $testObject->dependsOnTestClass2 instanceof TestClass2 ? 'Success!' : 'Fail
 ## Recursive dependencies are also automatically resolved
 
 ```php
-class TestClass1 extends \ArekX\MiniDI\InjectableObject {
+class TestClass1 {
 	public $dependsOnTestClass2;
 }
 
-class TestClass2 extends \ArekX\MiniDI\InjectableObject {
+class TestClass2 {
 	public $dependsOnTestClass3;
 }
 
-class TestClass3 extends \ArekX\MiniDI\InjectableObject {}
+class TestClass3 {}
 
 $injector = \ArekX\MiniDI\Injector::create([
 	'testObject' => 'TestClass1',
@@ -50,53 +50,21 @@ $testObject = $injector->get('testObject');
 echo $testObject->dependsOnTestClass2->dependsOnTestClass3 instanceof TestClass3 ? 'Success!' : 'Fail'; // Outputs: Success!
 ```
 
-## Without use of `\ArekX\MiniDI\InjectableObject` for cases when you need to wrap classes which do not usually support injection.
-
-```php
-class TestClass1 extends \ArekX\MiniDI\InjectableObject {
-	public $dependsOnTestClass2;
-}
-
-class TestClass2 extends SomeStandardClass implements \ArekX\MiniDI\Injectable {
-	public $additionalDependentParam;
-
-	public function getInjectables()
-	{
-		// When null is returned, injector searches for public params in this instance.
-		// If you do not need any parameters to be injected then write `return []`.
-		return null;
-	}
-}
-
-class TestClass3 extends \ArekX\MiniDI\InjectableObject {}
-
-$injector = \ArekX\MiniDI\Injector::create([
-	'testObject' => 'TestClass1',
-	'dependsOnTestClass2' => 'TestClass2',
-	'additionalDependentParam' => 'TestClass3'
-]);
-
-$testObject = $injector->get('testObject');
-
-echo $testObject->dependsOnTestClass2 instanceof TestClass2 ? 'Success!' : 'Fail'; // Outputs: Success!
-echo $testObject->dependsOnTestClass2->additionalDependentParam instanceof TestClass3 ? 'Success!' : 'Fail'; // Outputs: Success!
-```
-
 ## Shared objects
 
 Objects can be shared easily across diffent objects by specifying `'shared' => true`.
 
 ```php
-class TestClass1 extends \ArekX\MiniDI\InjectableObject {
+class TestClass1 {
 	public $testClass2;
 	public $sharedClass3;
 }
 
-class TestClass2 extends \ArekX\MiniDI\InjectableObject {
+class TestClass2 {
 	public $sharedClass3;
 }
 
-class TestClass3 extends \ArekX\MiniDI\InjectableObject {}
+class TestClass3 {}
 
 $injector = \ArekX\MiniDI\Injector::create([
 	'testObject' => 'TestClass1',
@@ -114,22 +82,25 @@ echo $testObject->sharedClass3 === $testObject->testClass2->sharedClass3 ? 'Same
 You can specify which parameters will be injected yourself by setting `$injectables` property in your class.
 
 ```php
-class TestClass1 extends \ArekX\MiniDI\InjectableObject {
+class TestClass1 implements \ArekX\MiniDI\Injectable {
 	public $testClass2;
 	public $mappedParam;
 	public $notInjectedParameter;
 
-	protected $injectables = [
-		'testClass2',
-		'mappedParam' => 'sharedClass3' // This will take 'sharedClass3' from injector and put it into $mapppedParam of this class.
-	];
+	public function getInjectables() {
+
+		return [
+			'testClass2',
+			'mappedParam' => 'sharedClass3' // This will take 'sharedClass3' from injector and put it into $mapppedParam of this class.
+		];
+	}
 }
 
-class TestClass2 extends \ArekX\MiniDI\InjectableObject {
+class TestClass2 {
 	public $sharedClass3;
 }
 
-class TestClass3 extends \ArekX\MiniDI\InjectableObject {}
+class TestClass3 {}
 
 $injector = \ArekX\MiniDI\Injector::create([
 	'testObject' => 'TestClass1',
@@ -145,16 +116,17 @@ echo $testObject->mappedParam === $testObject->testClass2->sharedClass3 ? 'Same 
 You can also set specific custom configuration for configuring one injected object.
 
 ```php
-class TestClass extends \ArekX\MiniDI\InjectableObject {
+class TestClass implements \ArekX\MiniDI\Injectable {
 	public $class2;
 	public $customParam;
 
-	protected $injectables = [
-		'class2'
-	];
+	public function getInjectables() 
+	{
+		return ['class2']; // Only class2 parameter will be injected.
+	}
 }
 
-class TestClass2 extends \ArekX\MiniDI\InjectableObject {}
+class TestClass2 {}
 
 $injector = \ArekX\MiniDI\Injector::create([
 	'testObject' => [

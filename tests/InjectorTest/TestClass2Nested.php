@@ -1,7 +1,7 @@
 <?php
 namespace InjectorTest;
 
-class TestClass2Nested extends \ArekX\MiniDI\InjectableObject
+class TestClass2Nested
 {
 	public $nestedParam;
 	public $injectParam;

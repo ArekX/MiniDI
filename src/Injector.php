@@ -125,7 +125,7 @@ class Injector
 			$instance->{$key} = $value;
 		}
 
-		$injectables = $instance->getInjectables();
+		$injectables = $instance instanceof Injectable ? $instance->getInjectables() : null;
 
 		if ($injectables === null) {
 			$injectables = array_keys(get_object_vars($instance));

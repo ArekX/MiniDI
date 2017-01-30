@@ -1,7 +1,7 @@
 <?php
 namespace InjectorMappingTest;
 
-class TestClassParamSetterCombination extends \ArekX\MiniDI\InjectableObject {
+class TestClassParamSetterCombination implements \ArekX\MiniDI\Injectable {
 	public $differentParam;
 	public $directMapParam;
 	public $differentSetterParam;

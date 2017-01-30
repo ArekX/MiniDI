@@ -1,7 +1,7 @@
 <?php
 namespace InjectorMappingTest;
 
-class TestClassOneParamRemap extends \ArekX\MiniDI\InjectableObject {
+class TestClassOneParamRemap implements \ArekX\MiniDI\Injectable {
 	public $differentParam;
 	public $notDependentParam = "I AM NOT SET";
 
