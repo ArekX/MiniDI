@@ -187,6 +187,8 @@ class Injector
             $instance->{$this->assignments[$key]['runAfterInit']}();
         }
 
+        $this->popDependency();
+
         return $instance;
     }
 
@@ -601,6 +603,5 @@ class Injector
         }
 
         $dependencyInjector->dependencyStack = $oldStack;
-        $this->popDependency();
     }
 }
