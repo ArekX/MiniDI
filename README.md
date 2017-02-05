@@ -44,7 +44,7 @@ class TestClass2 {
 
 class TestClass3 {}
 
-$injector = Injector::create([
+$injector = \ArekX\MiniDI\Injector::create([
     'testObject' => 'TestClass1',
     'class2' => 'TestClass2',
     'class3' => 'TestClass3'
