@@ -10,17 +10,17 @@ class InjectorTest extends \InjectorTest\TestCase
             'testObject' => '\InjectorTest\TestClassNoParams'
         ]);
 
-        $this->assertTrue($injector->get('testObject') instanceof \InjectorTest\TestClassNoParams);
+        $this->assertInstanceOf(\InjectorTest\TestClassNoParams::class, $injector->get('testObject'));
     }
 
     public function testParamInject()
     {
         $injector = Injector::create([
-        	'testObject' => '\InjectorTest\TestClass1Param',
-        	'injectParam' => '\InjectorTest\TestClassNoParams'
-    	]);
+            'testObject' => '\InjectorTest\TestClass1Param',
+            'injectParam' => '\InjectorTest\TestClassNoParams'
+        ]);
 
-    	$this->assertTrue($injector->get('testObject')->injectParam instanceof \InjectorTest\TestClassNoParams);
+        $this->assertInstanceOf(\InjectorTest\TestClassNoParams::class, $injector->get('testObject')->injectParam);
     }
 
     public function testNestedInject()
@@ -31,7 +31,7 @@ class InjectorTest extends \InjectorTest\TestCase
             'injectParam' => '\InjectorTest\TestClassNoParams'
         ]);
 
-        $this->assertTrue($injector->get('testObject')->nestedParam->injectParam instanceof \InjectorTest\TestClassNoParams);
+        $this->assertInstanceOf(\InjectorTest\TestClassNoParams::class, $injector->get('testObject')->nestedParam->injectParam);
     }
 
     public function testDifferentInstances()
@@ -129,8 +129,141 @@ class InjectorTest extends \InjectorTest\TestCase
             'injectParam' => ['class' => '\InjectorTest\TestClassNoParams', 'shared' => true]
         ]);
 
-        $testObject = $injector->get('testObject');
+        $injector->get('testObject');
+    }
 
-        $this->assertFalse($testObject->nestedParam->injectParam === $testObject->injectParam);
+    public function testAfterInitCall()
+    {
+        $injector = Injector::create([
+            'testClass1' => [
+                'class' => '\InjectorTest\TestClass1Param',
+                'dependencies' => [],
+                'shared' => true
+            ],
+            'testObjectNoAfterInit' => [
+                'class' => '\InjectorTest\TestClassAfterInit',
+                'dependencies' => ['testClass1']
+            ],
+            'testObject' => [
+                'class' => '\InjectorTest\TestClassAfterInit',
+                'runAfterInit' => 'init',
+                'dependencies' => ['testClass1']
+            ]
+        ]);
+
+        /** @var \InjectorTest\TestClass1Param $testClass1 */
+        $testClass1 = $injector->get('testClass1');
+        $testClass1->injectParam = "I AM SET AFTER INIT.";
+
+        /** @var \InjectorTest\TestClassAfterInit $noAfterInit */
+        $noAfterInit = $injector->get('testObjectNoAfterInit');
+
+        /** @var \InjectorTest\TestClassAfterInit $afterInit */
+        $afterInit = $injector->get('testObject');
+
+        $this->assertEquals($afterInit->initParam, $testClass1->injectParam);
+        $this->assertSame($afterInit->testClass1, $testClass1);
+        $this->assertSame($noAfterInit->testClass1, $testClass1);
+        $this->assertNotEquals($afterInit->initParam, $noAfterInit->initParam);
+        $this->assertNull($noAfterInit->initParam);
+    }
+
+
+    public function testValueConfig()
+    {
+        $injector = Injector::create([
+            'testObject' => '\InjectorTest\TestClass1Param',
+            'injectParam' => ['value' => "I AM TEST VALUE"]
+        ]);
+
+        $this->assertEquals($injector->get('testObject')->injectParam, "I AM TEST VALUE");
+    }
+
+    public function testAssignValue()
+    {
+        $injector = Injector::create([
+            'testObject' => '\InjectorTest\TestClass1Param'
+        ]);
+
+        $injector->assignValue('injectParam', "I AM TEST VALUE");
+
+        $this->assertEquals($injector->get('testObject')->injectParam, "I AM TEST VALUE");
+    }
+
+    public function testAssignClassSimple()
+    {
+        $injector = Injector::create([
+            'testObject' => '\InjectorTest\TestClass1Param'
+        ]);
+
+        $injector->assignClass('injectParam', \InjectorTest\TestClassNoParams::class);
+
+        $this->assertInstanceOf(\InjectorTest\TestClassNoParams::class, $injector->get('testObject')->injectParam);
+    }
+
+    public function testAssignClassDependencyValue()
+    {
+        $injector = Injector::create([
+            'testObject' => '\InjectorTest\TestClass1Param'
+        ]);
+
+        $injector->assignClass('injectParam', \InjectorTest\TestClass1Param::class, ['injectParam' => 'testValue']);
+        $injector->assignValue('testValue', "I AM TEST VALUE");
+
+        $object = $injector->get('testObject');
+        $this->assertInstanceOf(\InjectorTest\TestClass1Param::class, $object->injectParam);
+        $this->assertEquals($object->injectParam->injectParam, "I AM TEST VALUE");
+    }
+
+    public function testAssignClassConfig()
+    {
+        $injector = Injector::create([
+            'testObject' => '\InjectorTest\TestClass1Param'
+        ]);
+
+        $injector->assignClass('injectParam', \InjectorTest\TestClassConfig::class, [], [
+            'param' => 'test'
+        ]);
+
+        $object = $injector->get('testObject');
+        $this->assertInstanceOf(\InjectorTest\TestClassConfig::class, $object->injectParam);
+        $this->assertEquals($object->injectParam->getParam(), "test");
+    }
+
+    public function testAssignClassDependencyConfigAndInjector()
+    {
+        $this->expectException(\ArekX\MiniDI\Exception\InjectableNotFoundException::class);
+
+        $anotherInjector = Injector::create();
+
+        $injector = Injector::create([
+            'testObject' => '\InjectorTest\TestClass1Param'
+        ]);
+
+        $injector->assignClass('injectParam', \InjectorTest\TestClassConfig::class, ['param' => 'valueTest'], [
+            'param2' => 'test',
+        ], $anotherInjector);
+
+        $injector->assignValue('valueTest', "NOPE");
+
+        $injector->get('testObject');
+    }
+
+    public function testSetParent()
+    {
+        $anotherInjector = Injector::create();
+
+        $injector = Injector::create()->setParent($anotherInjector);
+
+        $this->assertEquals($injector->getParent(), $anotherInjector);
+    }
+
+    public function testSetParentSelf()
+    {
+        $injector = Injector::create();
+
+        $injector->setParent($injector);
+
+        $this->assertEquals($injector->getParent(), null);
     }
 }

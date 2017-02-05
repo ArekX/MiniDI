@@ -10,8 +10,33 @@ class InjectorExceptionTest extends \InjectorTest\TestCase
 
         Injector::create([
             'testObject' => '\InjectorExceptionTest\TestClassCircularException',
+            'circularParam' => '\InjectorExceptionTest\TestClass1Param',
+            'param' => '\InjectorExceptionTest\TestClassCircularException'
+        ])->get('testObject');
+    }
+
+    public function testSelfCircularDependencyException()
+    {
+        $this->expectException(\ArekX\MiniDI\Exception\CircularDependencyException::class);
+
+        Injector::create([
+            'testObject' => '\InjectorExceptionTest\TestClassCircularException',
             'circularParam' => '\InjectorExceptionTest\TestClassCircularException'
         ])->get('testObject');
+    }
+
+    public function testNoCircularDependencyExceptionWhenShared()
+    {
+        try {
+            Injector::create([
+                'testObject' => '\InjectorExceptionTest\TestClassCircularException',
+                'circularParam' => ['class' => '\InjectorExceptionTest\TestClassCircularException', 'shared' => true]
+            ])->get('testObject');
+        } catch (\Exception $e) {
+            throw $e;
+        }
+
+        $this->assertTrue(true);
     }
 
     public function testNotFoundInjectable()

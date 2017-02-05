@@ -1,9 +1,64 @@
 # MiniDI
-Minimal PHP Dependency Injector
 
-# Active Development
+Minimal PHP Dependency Injector with maximum configurability
 
-This library is currently in active development and not ready for use. Expect bugs.
+Purpose of dependency injection is to have all of the classes and class dependencies resolved without calling for 
+classes yourself and resolving them yourself directly.
+
+In standard PHP you might do things like these:
+
+```php
+class TestClass1 {
+   public $class2;
+   
+   public function __construct(TestClass2 $class2) {
+        $this->class2 = $class2;
+   }
+}
+
+class TestClass2 {
+   public $class3;
+   
+   public function __construct(TestClass3 $class3) {
+        $this->class3 = $class3;
+   }
+}
+
+class TestClass3 {}
+
+$class3 = new TestClass3();
+$class2 = new TestClass2($class3);
+$class1 = new TestClass1($class2);
+```
+
+Where you would wire classes and dependencies yourself. But with dependency injector, such as `MiniDI` you can do this:
+
+```php
+class TestClass1 {
+   public $class2;
+}
+
+class TestClass2 {
+   public $class3;
+}
+
+class TestClass3 {}
+
+$injector = Injector::create([
+    'testObject' => 'TestClass1',
+    'class2' => 'TestClass2',
+    'class3' => 'TestClass3'
+]);
+
+$class1 = $injector->get('testObject');
+```
+
+`$class1` would have instance of `TestClass1` with `$class2` already populated with instance of `TestClass2`, and
+also in that instance `$class3` will be populated with instance of `TestClass3`.
+ 
+ 
+ This approach to class management allows for easy class switching and makes your code way more testable as you can do
+ mocking for your classes without much hassle.
 
 # Usage
 
@@ -26,29 +81,6 @@ $testObject = $injector->get('testObject');
 echo $testObject->dependsOnTestClass2 instanceof TestClass2 ? 'Success!' : 'Fail'; // Outputs: Success!
 ```
 
-## Recursive dependencies are also automatically resolved
-
-```php
-class TestClass1 {
-	public $dependsOnTestClass2;
-}
-
-class TestClass2 {
-	public $dependsOnTestClass3;
-}
-
-class TestClass3 {}
-
-$injector = \ArekX\MiniDI\Injector::create([
-	'testObject' => 'TestClass1',
-	'dependsOnTestClass2' => 'TestClass2',
-	'dependsOnTestClass3' => 'TestClass3',
-]);
-
-$testObject = $injector->get('testObject');
-
-echo $testObject->dependsOnTestClass2->dependsOnTestClass3 instanceof TestClass3 ? 'Success!' : 'Fail'; // Outputs: Success!
-```
 
 ## Shared objects
 
@@ -136,6 +168,35 @@ $injector = \ArekX\MiniDI\Injector::create([
 echo $injector->get('testObject')->customParam; // Outputs: Test String
 ```
 
+# Using values
+
+You can use any value in properties of object by setting the key. All classes which are
+configured to depend on that value will have it
+when they are created.
+
+```php
+class TestClass {
+    public $paramValue;
+}
+
+$injector = \ArekX\MiniDI\Injector::create([
+   'testObject' => 'TestClass',
+   'paramValue' => ['value' => "Some value"]
+]);
+
+echo $injector->get('testObject')->paramValue; // Will output "Some value"
+```
+
+# Additional configuration
+
+After injector is created you can pass additional configuration to it via methods:
+
+* `Injector::merge(['dependency' => 'Class'])` This will merge current injectors (and overwrite existing) configuration for this key.
+* `Injector::assign('key', 'Class')` or `Injector::assign('key', ['class' => 'SomeClass'])` will set the configuration for that specific key with configuration specified in the array.
+* `Injector::assignClass('key', 'ClassName', ['classDependency1'], $injector)` assigns class configuration for that key. Dependency and Injector parameters are optional.
+* `Injector::assignValue('key', "some value")` assigns key to be a value.
+* `Injector::setParent($parentInjector)` sets parent injector of this injector. When this parent is set, Injector will call `Injector::get()` of the parent if it cannot find resolution for specified key.
+
 # Installation
 
 Install via composer
@@ -158,6 +219,26 @@ In Command Prompt Run:
 In Terminal Run:
 
 	./test.sh
+
+
+# Documentation
+
+To run tests in injector you will need phpDocumentor.phar in the directory of the project. 
+Please run following command in cloned folder:
+
+### Windows
+
+In Command Prompt Run:
+
+	document.bat
+
+### Linux
+
+In Terminal Run:
+
+	./document.sh
+
+Documentation will be generated in `doc` folder.
 
 # License
 
