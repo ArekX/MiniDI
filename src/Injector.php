@@ -429,6 +429,39 @@ class Injector
         return $this->parent;
     }
 
+
+    /**
+     * Creates new instance of this injector.
+     *
+     * This is a helper method for use in functional style and method chaining.
+     *
+     * @param array $config Injector configuration
+     * @return static
+     * @see Injector::merge()
+     */
+    public static function create($config = [])
+    {
+        return new static($config);
+    }
+
+    /**
+     * Checks this injector and its parent if it has a specific dependency
+     * defined by $key.
+     *
+     * @param $key string name of the dependency.
+     * @return bool
+     */
+    public function has($key)
+    {
+        $result = !empty($this->assignments[$key]);
+
+        if (!$result && $this->parent !== null) {
+            return $this->parent->has($key);
+        }
+
+        return $result;
+    }
+
     protected function createInjectorFromObject($injector, $isolate = false)
     {
         $newInjector = Injector::create($injector->assignments);
@@ -512,19 +545,5 @@ class Injector
         }
 
         return array_pop($this->dependencyStack);
-    }
-
-    /**
-     * Creates new instance of this injector.
-     *
-     * This is a helper method for use in functional style and method chaining.
-     *
-     * @param array $config Injector configuration
-     * @return static
-     * @see Injector::merge()
-     */
-    public static function create($config = [])
-    {
-        return new static($config);
     }
 }

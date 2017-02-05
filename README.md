@@ -111,8 +111,9 @@ echo $testObject->sharedClass3 === $testObject->testClass2->sharedClass3 ? 'Same
 
 ## Custom Config
 
-You can specify which parameters will be injected yourself by setting `'dependencies' => []` configuration.
+You can specify which parameters will be injected yourself by setting `'dependencies' => []` configuration. `'dependencies'` can be set in multiple ways, as an array, class method or even callable:
 
+Example using array:
 ```php
 class TestClass1 {
 	public $testClass2;
@@ -138,6 +139,67 @@ $injector = \ArekX\MiniDI\Injector::create([
 $testObject = $injector->get('testObject');
 
 echo $testObject->mappedParam === $testObject->testClass2->sharedClass3 ? 'Same shared classes!' : 'Fail'; // Outputs: Same shared classes!
+```
+
+Example using class method:
+```php
+class TestClass1 {
+	public $testClass2;
+	public $mappedParam;
+	public $notInjectedParameter;
+	
+	public function getInjectables()
+	{
+	    return [
+            'testClass2',
+            'mappedParam' => 'sharedClass3'
+        ];
+	}
+}
+
+class TestClass2 {
+	public $sharedClass3;
+}
+
+class TestClass3 {}
+
+$injector = \ArekX\MiniDI\Injector::create([
+	'testObject' => ['class' => 'TestClass1', 'dependencies' => 'getInjectables',
+	'testClass2' => 'TestClass2',
+	'sharedClass3' => ['class' => 'TestClass3', 'shared' => true],
+]);
+
+$testObject = $injector->get('testObject');
+```
+
+Example using callable:
+```php
+class TestClass1 {
+	public $testClass2;
+	public $mappedParam;
+	public $notInjectedParameter;
+}
+
+class TestClass2 {
+	public $sharedClass3;
+}
+
+class TestClass3 {}
+
+$injector = \ArekX\MiniDI\Injector::create([
+	'testObject' => ['class' => 'TestClass1', 'dependencies' => function($instance, $injector) {
+	    // Do things like checking if $instance needs some additional dependencies,
+	    // Or if $injector has those dependencies by calling $injector->has('key');
+	    return [
+            'testClass2',
+            'mappedParam' => 'sharedClass3'
+        ];
+	},
+	'testClass2' => 'TestClass2',
+	'sharedClass3' => ['class' => 'TestClass3', 'shared' => true],
+]);
+
+$testObject = $injector->get('testObject');
 ```
 
 You can also set specific custom configuration for configuring one injected object.
@@ -185,6 +247,46 @@ $injector = \ArekX\MiniDI\Injector::create([
 ]);
 
 echo $injector->get('testObject')->paramValue; // Will output "Some value"
+```
+
+# Running stuff after dependency resolution (auto-wiring)
+
+If you need to run functions after class has all needed dependencies you can do so by setting `runAfterInit` property.
+
+```php
+class TestClass1 
+{
+    public $dependency1;
+    
+    protected $hiddenParam;
+    
+    public function init() 
+    {
+        $this->hiddenParam = $dependency1->getValue();
+    }
+    
+    public function getHiddenParam()
+    {
+        return $this->hiddenParam;
+    }
+}
+
+class TestClass2 
+{
+   public function getValue() 
+   {
+        return "someValue";
+   }
+}
+
+$injector = \ArekX\MiniDI\Injector::create([
+   'testObject' => ['class' => 'TestClass1', 'runAfterInit' => 'init'],
+   'dependency1' => 'TestClass2'
+]);
+
+$object = $injector->get('testObject');
+
+echo $object->getHiddenParam(); // Outputs "someValue"
 ```
 
 # Additional configuration

@@ -266,4 +266,31 @@ class InjectorTest extends \InjectorTest\TestCase
 
         $this->assertEquals($injector->getParent(), null);
     }
+
+    public function testInjectorHasMethodWhenExists()
+    {
+        $injector = Injector::create(['test' => ['value' => "Test Value"]]);
+
+        $this->assertTrue($injector->has('test'));
+    }
+
+    public function testInjectorHasMethodWhenNotExists()
+    {
+        $injector = Injector::create();
+        $this->assertFalse($injector->has('test'));
+    }
+
+    public function testInjectorHasMethodWhenParentExists()
+    {
+        $parentInjector = Injector::create(['test' => ['value' => "test"]]);
+        $injector = Injector::create()->setParent($parentInjector);
+        $this->assertTrue($injector->has('test'));
+    }
+
+    public function testInjectorHasMethodWithParentWhenNotExists()
+    {
+        $parentInjector = Injector::create(['test1' => ['value' => "test"]]);
+        $injector = Injector::create()->setParent($parentInjector);
+        $this->assertFalse($injector->has('test'));
+    }
 }
