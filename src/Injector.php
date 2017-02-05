@@ -426,7 +426,7 @@ class Injector
     }
 
     /**
-     * Checks this injector and its parent if it has a specific dependency
+     * Checks this injector or its parent if it has a specific dependency
      * defined by $key.
      *
      * @param $key string name of the dependency.
