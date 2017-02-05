@@ -1,10 +1,7 @@
 <?php
 namespace InjectorExceptionTest;
 
-class TestClassInvalidMapping implements \ArekX\MiniDI\Injectable
+class TestClassInvalidMapping
 {
-	public function getInjectables()
-	{
-		return ['nonexistingParam'];
-	}
+
 }

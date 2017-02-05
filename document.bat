@@ -1,0 +1,1 @@
+php phpDocumentor.phar run -d src -t doc

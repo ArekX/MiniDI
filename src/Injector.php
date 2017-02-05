@@ -6,21 +6,67 @@ use ArekX\MiniDI\Exception\CircularDependencyException;
 use ArekX\MiniDI\Exception\InjectableNotFoundException;
 use ArekX\MiniDI\Exception\InjectablePropertyException;
 use ArekX\MiniDI\Exception\InvalidConfigurationException;
+use ArekX\MiniDI\Exception\StackUnderflowException;
 
+/**
+ * Class Injector
+ * @package ArekX\MiniDI
+ */
 class Injector
 {
-	protected $injectStack = [];
-	protected $previousInjectStacks = [];
+    /**
+     * @var array Injection stack for circular dependency detection.
+     */
+	protected $dependencyStack = [];
+
+    /**
+     * @var array List of shared instances
+     */
 	protected $sharedObjects = [];
+
+    /**
+     * @var array Assignment configuration for this injector.
+     */
 	protected $assignments = [];
 
+    /**
+     * @var Injector|null Parent injector for dependency resolution.
+     */
 	protected $parent = null;
 
+    /**
+     * Injector constructor.
+     * @param array|Injector $config Injector configuration.
+     * @see Injector::merge() for configuration parameters.
+     */
 	public function __construct($config = [])
 	{
 		$this->merge($config);
 	}
 
+    /**
+     * Merges configuration of this injector with configuration array or configuration from other Injector
+     *
+     * Configuration is in following array format:
+     * ```php
+     * [
+     *    'dependencyKey' => []
+     * ]
+     * ```
+     *
+     * Configuration is normalized and assigned using Injector::assign.
+     *
+     * After merging instance of an object can be retrieved by calling Injector::get($key). All dependencies
+     * of that retrieved instance are automatically resolved.
+     *
+     * @param $config array|Injector Configuration for this injector.
+     * @param bool $isolate
+     * @return $this
+     * @throws InvalidConfigurationException
+     * @see Injector::makeInstance()
+     * @see Injector::createInjectorFromConfig()
+     * @see Injector::assign()
+     */
 	public function merge($config, $isolate = false)
 	{
 		if (empty($config)) {
@@ -33,38 +79,34 @@ class Injector
 		foreach ($assignments as $key => $config) {
 			$config = is_string($config) ? ['class' => $config, 'config' => [], 'injector' => null] : $config;
 
-			if (array_key_exists('value', $config)) {
-				$this->assignValue($key, $config);
-				continue;
-			}
+            if (empty($config['injector'])) {
+                $config['injector'] = $newInjector;
+            }
 
-			if (empty($config['class'])) {
-				throw new InvalidConfigurationException("Class must be set for key {$key}.");
-			}
-
-			if (!isset($config['config'])) {
-				$config['config'] = [];
-			}
-
-			if (empty($config['injector'])) {
-				$config['injector'] = $newInjector;
-			}
-
-			$this->assign($key, $config['class'], $config['config'], $config['injector']);
-
-			if (!empty($config['shared'])) {
-				$this->assignments[$key]['shared'] = true;
-
-				if ($config instanceof Injector && array_key_exists($key, $config) && !$isolate) {
-					$this->sharedObjects[$key] = $config->sharedObjects[$key];
-				}
-			}
-
+			$this->assign($key, $config);
 		}
 
 		return $this;
 	}
 
+    /**
+     * Returns class instance or a value, which is resolved by $key parameter.
+     *
+     * If nothing is found for $key parameters this injector will check the keys of parent injector (if it has one),
+     * and will throw InjectableNotFoundException if no results are found.
+     *
+     * If a class does not have ['shared' => true] in its configuration this injector will always create, a new
+     * instance of this class.
+     *
+     * If a class has circular dependencies (e.g. Class1 depends on Class2 which depends on Class1)
+     * CircularDependencyException will be thrown.
+     *
+     * @see Injector::merge()
+     * @param $key string Class key
+     * @return mixed
+     * @throws CircularDependencyException
+     * @throws InjectableNotFoundException
+     */
 	public function get($key)
 	{
 		if (!isset($this->assignments[$key])) {
@@ -90,48 +132,92 @@ class Injector
 			$injector = $this;
 		}
 
-		foreach ($this->injectStack as $parentClass) {
+		foreach ($this->dependencyStack as $parentClass) {
 			if ($class == $parentClass[0]) {
-				throw new CircularDependencyException($this->injectStack, $class);
+				throw new CircularDependencyException($this->dependencyStack, $class);
 			}
 		}
 
-		$this->pushInjectStack([$class, $key]);
-		$oldStack = $injector->injectStack;
-		$injector->injectStack = $this->injectStack;
-		
-		$object = $this->makeInstance($class, $key, $injector);
+		$this->pushDependency([$class, $key]);
+		$oldStack = $injector->dependencyStack;
+		$injector->dependencyStack = $this->dependencyStack;
 
-		$injector->injectStack = $oldStack;
-		$this->popInjectStack();
+		$object = $this->makeInstance($key, $injector);
 
-		if (!empty($this->assignments[$key]['shared'])) {
-			$this->sharedObjects[$key] = $object;
-		}
+		$injector->dependencyStack = $oldStack;
+		$this->popDependency();
 
 		return $object;
 	}
 
-	protected function makeInstance($class, $key, $injector)
+    /**
+     * Makes a new instance of $class.
+     *
+     * If $dependencies is null, injector will consider all public properties of this class to be dependency keys
+     * which will be filled by classes.
+     *
+     * If $dependencies is array, injector will fill only those public properties. Array can be in following formats:
+     * As simple array:
+     * ```php
+     *  // This will set class property or call setter of the same name to defined dependency.
+     * ['dependency1', 'dependency2', ... ]
+     * ```
+     *
+     * Or as map array:
+     * ```php
+     * // This will set class property or call setter of name specified by key to a dependency specified by value.
+     * ['classProperty1' => 'dependency1', 'classProperty2' => 'dependency2', ...]
+     * ```
+     *
+     * Or combined:
+     * ```php
+     * ['dependency1', 'classProperty' => 'dependency2']
+     * ```
+     *
+     * If $dependencies is string, then a method of that name will be called from class instance, that method
+     * should return an array in format explained above, and injector will use that array to resolve dependencies.
+     *
+     * If $dependencies is callable, then injector will call that callable passing instance and itself. That
+     * callable needs to return an array in format explained above and injector will use that array to resolve
+     * dependencies.
+     *
+     * Callable is in following format:
+     * ```php
+     * function($instance, $injector) {
+     *    return ['dependency1', 'classParam' => 'dependency2'] // Array format as defined above.
+     * }
+     * ```
+     *
+     * @param $class string Class name which will be created.
+     * @param $config array Configuration parameter which will be passed in constructor.
+     * @param $dependencies null|array|string|callable Dependency array of this instance, method name of class or callable.
+     * @param Injector $injector Injector which will be used to handle dependencies of this instance.
+     * @return mixed Instance of class defined by $class parameter.
+     * @throws InjectablePropertyException
+     * @throws InvalidConfigurationException
+     */
+	protected function makeInstance($key, Injector $injector)
 	{
-		$config = $this->assignments[$key]['config'];
-		$instance = new $class($config); 
+	    $class = $this->assignments[$key]['class'];
+        $config = $this->assignments[$key]['config'];
+        $dependencies = $this->assignments[$key]['dependencies'];
 
-		foreach ($config as $key => $value) {
-			if (!property_exists($instance, $key)) {
-				throw new InvalidConfigurationException($config, "Property {$key} not found in {$class}.");
-			}
+	    /** @var object $instance */
+		$instance = new $class($config);
 
-			$instance->{$key} = $value;
-		}
+        if (!empty($this->assignments[$key]['shared'])) {
+            $this->sharedObjects[$key] = $instance;
+        }
 
-		$injectables = $instance instanceof Injectable ? $instance->getInjectables() : null;
+		if ($dependencies === null) {
+			$dependencies = array_keys(get_object_vars($instance));
+		} elseif (is_string($dependencies)) {
+		    $dependencies = $instance->{$dependencies}();
+        } elseif (is_callable($dependencies)) {
+		    $dependencies = $dependencies($instance, $injector, $this);
+        }
 
-		if ($injectables === null) {
-			$injectables = array_keys(get_object_vars($instance));
-		}
-
-		foreach ($injectables as $property => $injectorProperty) {
+		foreach ($dependencies as $property => $injectorProperty) {
 			if (is_numeric($property)) {
 				$property = $injectorProperty;
 			}
@@ -143,47 +229,196 @@ class Injector
 			} elseif (property_exists($instance, $property)) {
 				$instance->{$property} = $injector->get($injectorProperty);
 			} else {
-				throw new InjectablePropertyException($property);
+				throw new InjectablePropertyException($property, $class);
 			}
 		}
+
+		if (!empty($config['runAfterInit'])) {
+		    $instance->{$config['runAfterInit']}();
+        }
 
 		return $instance;
 	}
 
+    /**
+     * Marks specific key as shared.
+     *
+     *
+     * Shared classes will only be created once and they will be a shared dependency
+     * across all classes which require them.
+     *
+     * Marking value as shared will do nothing as values are automatically shared.
+     *
+     * @param $key string ke
+     * @return $this
+     */
 	public function share($key)
 	{
 		$this->assignments[$key]['shared'] = true;
 		return $this;
 	}
 
+    /**
+     * Set specific value to this injector.
+     *
+     * Value can by any kind of value, classes which have $key as their
+     * dependency will have this value.
+     *
+     * @param $key
+     * @param $value
+     * @return $this
+     */
 	public function assignValue($key, $value)
 	{
 		$this->assignments[$key] = ['value' => $value];
 		return $this;
 	}
 
-	public function assign($key, $class, $config = [], $injector = null)
+    /**
+     * Set specific class name to be resolved when calling Injector::get($key).
+     *
+     * Dependencies of this are resolved by this injector unless $injector is passed
+     *
+     * @param $key string Key which will be resolved to class.
+     * @param $class string Class name
+     * @param $dependencies null|array|string|callable Dependencies of this class
+     * @param array $config Configuration which will be passed to created $class.
+     * @param Injector|array $injector
+     * @see Injector::makeInstance()
+     *
+     * @return $this
+     */
+	public function assignClass($key, $class, $dependencies = null, $config = [], $injector = null)
 	{
 		if (is_array($injector)) {
 			$injector = $this->createInjectorFromConfig($injector);
 		}
 
-		$this->assignments[$key] = ['class' => $class, 'config' => $config, 'injector' => $injector];
+		$this->assignments[$key] = [
+		    'class' => $class,
+            'config' => $config,
+            'injector' => $injector,
+            'dependencies' => $dependencies
+        ];
 		return $this;
 	}
 
+    /**
+     * Assigns specific configuration for a $key.
+     *
+     * If configuration is passed as string then that string is used as class name when creating an instance
+     * of this class.
+     *
+     * Configuration can be passed as array. Following format is processed::
+     * ```php
+     * [
+     *    'class' => 'ClassName1',
+     *    'shared' => false, // Whether or not this class is shared. Shared classes have only one instance.
+     *    'config' => [
+     *        'key1' => 'value1',
+     *        'key2' => 'value2',
+     *        // ...
+     *    ] // Optional configuration array will be passed to ClassName1 constructor as first parameter.
+     *    'injector' => [] // Optional inner injector configuration.
+     *    'dependencies' => null // Optional dependencies, see Injector::makeInstance() for more info.
+     *    'runAfterInit' => 'methodName' // Optional method which will be run after class initialization.
+     * ]
+     * ```
+     *
+     * Value configuration can also be set in following array format::
+     * ```php
+     * [
+     *    'value' => "specificValue"  // When calling Injector::get('key') it will return "specificValue".
+     * ]
+     * ```
+     *
+     *
+     * When passing specific injector for a class, that injector will be used to handle that class dependencies.
+     *
+     * Injector configurations can be passed as array configuration, or as another injector instance:
+     *
+     * As configuration:
+     * ```php
+     * [
+     *     'class' => 'ClassName1',
+     *     'injector' => [
+     *          'class' => 'InjectorClassName',
+     *          'config' => [], // Injector config.
+     *          'isolateConfig' => false, // Whether or not config will be isolated when merging.
+     *          'isolate' => false // Whether or not this injector will be isolated
+     *     ]
+     * ]
+     * ```
+     *
+     * As instance:
+     * ```php
+     * [
+     *     'class' => 'ClassName1',
+     *     'injector' => [
+     *          'instance' => $injectorObject,
+     *          'config' => [], // Injector config which will be merged to that injector.
+     *          'isolateConfig' => false, // Whether or not config will be isolated when merging.
+     *          'isolate' => false // Whether or not this injector will be isolated
+     *     ]
+     * ]
+     *
+     * Isolated injectors do not have access to parent injector configuration.
+     *
+     *
+     * @param $key
+     * @param $config
+     * @throws InvalidConfigurationException
+     */
+	public function assign($key, $config)
+    {
+        $config = is_string($config) ? ['class' => $config, 'config' => [], 'injector' => null] : $config;
+
+        if (array_key_exists('value', $config)) {
+            $this->assignValue($key, $config);
+            return;
+        }
+
+        if (empty($config['class'])) {
+            throw new InvalidConfigurationException($config, "Class must be set for key {$key}.");
+        }
+
+        if (!isset($config['config'])) {
+            $config['config'] = [];
+        }
+
+        if (!isset($config['dependencies'])) {
+            $config['dependencies'] = null;
+        }
+
+        if (!isset($config['injector'])) {
+            $config['injector'] = null;
+        }
+
+        $this->assignClass($key, $config['class'], $config['dependencies'], $config['config'], $config['injector']);
+
+        if (!empty($config['shared'])) {
+            $this->assignments[$key]['shared'] = true;
+        }
+    }
+
+    /**
+     * Sets another injector instance as a parent to this injector.
+     *
+     * When resolving dependencies, if a dependency cannot be found in this injector
+     * it will call Injector::get() of its parent.
+     *
+     * @param Injector $parent
+     */
 	public function setParent(Injector $parent)
 	{
-		$this->parentInjector = $parent;
-	}
+	    if ($parent !== $this) {
+            $this->parentInjector = $parent;
+        }
+    }
 
 	protected function createInjectorFromObject($injector, $isolate = false)
 	{
 		$newInjector = Injector::create($injector->assignments);
-
-		if ($config instanceof Injector) {
-			$newInjector->sharedObjects = $config->sharedObjects;
-		}
 
 		if (!$isolate && $newInjector !== null) {
 			$newInjector->setParent($this);
@@ -192,6 +427,29 @@ class Injector
 		return $newInjector;
 	}
 
+    /**
+     * Creates new injector instance from configuration array.
+     *
+     * Configuration array is in format:
+     *
+     *
+     * ```php
+     * [
+     *    'class' => 'InjectorClassName',
+     *    'config' => [
+     *       'dependency' => 'ClassName1',
+     *       ...
+     *    ],
+     *    'isolate' => false // Optional parameter whether or not this injector instance is isolated (no parent).
+     *    'isolateConfig' => false // Optional parameter whether or not this injector's configuration is isolated.
+     * ]
+     * ``
+     *
+     * @param $array
+     * @return Injector
+     * @throws InvalidConfigurationException
+     * @see Injector::assign()
+     */
 	protected function createInjectorFromConfig($array)
 	{
 		$injectorConfig = isset($array['config']) ? $array['config'] : [];
@@ -199,11 +457,13 @@ class Injector
 		if (isset($array['class'])) {
 			$injectorClass = $array['class'];
         	$injector = new $injectorClass();
-		} elseif (isset($array['object'])) {
-			$injector = $array['object'];
+		} elseif (isset($array['instance'])) {
+			$injector = $array['instance'];
 		} else {
-			throw new InvalidConfigurationException("Injector configuration must have either class or object property set.");
+			throw new InvalidConfigurationException($array, "Injector configuration must have either class or instance property set.");
 		}
+
+		/** @var $injector Injector */
 
 		$injector->merge($injectorConfig, !empty($array['isolateConfig']));
 
@@ -214,20 +474,43 @@ class Injector
         return $injector;
 	}
 
-	protected function pushInjectStack($className)
+    /**
+     * Pushes dependency information to stack
+     *
+     * This function is used for detecting circular dependencies.
+     *
+     * @param $classInfo array Information about class in format: ['className', 'dependencyKey']
+     */
+	protected function pushDependency($classInfo)
 	{
-		$this->injectStack[] = $className;
+		$this->dependencyStack[] = $classInfo;
 	}
 
-	protected function popInjectStack()
+    /**
+     * Pops dependency from stack.
+     *
+     * @return array $class infromation
+     * @throws \Exception
+     * @see Injector::pushDependency()
+     */
+	protected function popDependency()
 	{
-		if (empty($this->injectStack)) {
-			throw new \Exception("Injection stack is empty!");
+		if (empty($this->dependencyStack)) {
+			throw new StackUnderflowException();
 		}
 
-		return array_pop($this->injectStack);
+		return array_pop($this->dependencyStack);
 	}
 
+    /**
+     * Creates new instance of this injector.
+     *
+     * This is a helper method for use in functional style and method chaining.
+     *
+     * @param array $config Injector configuration
+     * @return static
+     * @see Injector::merge()
+     */
 	public static function create($config = [])
 	{
 		return new static($config);

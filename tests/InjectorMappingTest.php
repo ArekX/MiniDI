@@ -7,8 +7,8 @@ class InjectorMappingTest extends \InjectorTest\TestCase
    public function testOneInjectableParam()
    {
         $injector = Injector::create([
-            'testObject' => '\InjectorMappingTest\TestClassOneParam',
-            'dependentParam' => '\InjectorMappingTest\TestClassNoParams'
+            'testObject' => ['class' => '\InjectorMappingTest\TestClassOneParam', 'dependencies' => ['dependentParam']],
+            'dependentParam' => ['class' => '\InjectorMappingTest\TestClassNoParams', 'dependencies' => []]
         ]);
 
         $testObject = $injector->get('testObject');
@@ -19,8 +19,8 @@ class InjectorMappingTest extends \InjectorTest\TestCase
    public function testOneInjectableRemappedParam()
    {
         $injector = Injector::create([
-            'testObject' => '\InjectorMappingTest\TestClassOneParamRemap',
-            'dependentParam' => '\InjectorMappingTest\TestClassNoParams'
+            'testObject' => ['class' => '\InjectorMappingTest\TestClassOneParamRemap', 'dependencies' => 'getInjectables'],
+            'dependentParam' => ['class' => '\InjectorMappingTest\TestClassNoParams', 'dependencies' => []]
         ]);
 
         $testObject = $injector->get('testObject');
@@ -31,8 +31,8 @@ class InjectorMappingTest extends \InjectorTest\TestCase
    public function testOneInjectableSetterParam()
    {
         $injector = Injector::create([
-            'testObject' => '\InjectorMappingTest\TestClassOneParamSetter',
-            'dependentParam' => '\InjectorMappingTest\TestClassNoParams'
+            'testObject' => ['class' => '\InjectorMappingTest\TestClassOneParamSetter', 'dependencies' => 'getInjectables'],
+            'dependentParam' => ['class' => '\InjectorMappingTest\TestClassNoParams', 'dependencies' => []]
         ]);
 
         $testObject = $injector->get('testObject');
@@ -43,8 +43,8 @@ class InjectorMappingTest extends \InjectorTest\TestCase
    public function testOneInjectableParamMappingCombination()
    {
         $injector = Injector::create([
-            'testObject' => '\InjectorMappingTest\TestClassParamSetterCombination',
-            'dependentParam' => '\InjectorMappingTest\TestClassNoParams'
+            'testObject' =>  ['class' => '\InjectorMappingTest\TestClassParamSetterCombination', 'dependencies' => 'getInjectables'],
+            'dependentParam' => ['class' => '\InjectorMappingTest\TestClassNoParams', 'dependencies' => []]
         ]);
 
         $testObject = $injector->get('testObject');

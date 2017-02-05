@@ -79,21 +79,13 @@ echo $testObject->sharedClass3 === $testObject->testClass2->sharedClass3 ? 'Same
 
 ## Custom Config
 
-You can specify which parameters will be injected yourself by setting `$injectables` property in your class.
+You can specify which parameters will be injected yourself by setting `'dependencies' => []` configuration.
 
 ```php
-class TestClass1 implements \ArekX\MiniDI\Injectable {
+class TestClass1 {
 	public $testClass2;
 	public $mappedParam;
 	public $notInjectedParameter;
-
-	public function getInjectables() {
-
-		return [
-			'testClass2',
-			'mappedParam' => 'sharedClass3' // This will take 'sharedClass3' from injector and put it into $mapppedParam of this class.
-		];
-	}
 }
 
 class TestClass2 {
@@ -103,7 +95,10 @@ class TestClass2 {
 class TestClass3 {}
 
 $injector = \ArekX\MiniDI\Injector::create([
-	'testObject' => 'TestClass1',
+	'testObject' => ['class' => 'TestClass1', 'dependencies' => [
+	    'testClass2',
+	    'mappedParam' => 'sharedClass3'
+	],
 	'testClass2' => 'TestClass2',
 	'sharedClass3' => ['class' => 'TestClass3', 'shared' => true],
 ]);
@@ -116,13 +111,13 @@ echo $testObject->mappedParam === $testObject->testClass2->sharedClass3 ? 'Same 
 You can also set specific custom configuration for configuring one injected object.
 
 ```php
-class TestClass implements \ArekX\MiniDI\Injectable {
+class TestClass {
 	public $class2;
 	public $customParam;
 
-	public function getInjectables() 
+	public function __construct($config = []) 
 	{
-		return ['class2']; // Only class2 parameter will be injected.
+		$this->customParam = $config['customParam'];
 	}
 }
 

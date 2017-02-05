@@ -1,4 +1,6 @@
 composer.phar
 composer.lock
 phpunit.phar
+phpDocumentor.phar
 vendor
+.idea

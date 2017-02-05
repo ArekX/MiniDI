@@ -3,5 +3,5 @@ namespace InjectorExceptionTest;
 
 class TestClassCircularException
 {
-	public $circularParam;
+    public $circularParam;
 }

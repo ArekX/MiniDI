@@ -104,7 +104,7 @@ class InjectorTest extends \InjectorTest\TestCase
         $injector = Injector::create([
             'testObject' => '\InjectorTest\TestClass2Nested',
             'nestedParam' => ['class' => '\InjectorTest\TestClass1Param', 'injector' => [
-                'object' => $anotherInjector,
+                'instance' => $anotherInjector,
                 'isolate' => true
             ]],
             'injectParam' => ['class' => '\InjectorTest\TestClassNoParams', 'shared' => true]

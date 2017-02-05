@@ -25,7 +25,9 @@ class InjectorExceptionTest extends \InjectorTest\TestCase
     {
         $this->expectException(\ArekX\MiniDI\Exception\InjectablePropertyException::class);
 
-        Injector::create(['testObject' => '\InjectorExceptionTest\TestClassInvalidMapping'])->get('testObject');
+        Injector::create([
+            'testObject' => ['class' => '\InjectorExceptionTest\TestClassInvalidMapping', 'dependencies' => ['nonexistingParam']]
+        ])->get('testObject');
     }
 
     public function testInvalidConfiguationException()
@@ -33,7 +35,7 @@ class InjectorExceptionTest extends \InjectorTest\TestCase
         $this->expectException(\ArekX\MiniDI\Exception\InvalidConfigurationException::class);
 
         Injector::create([
-        	'testObject' => ['class' => '\InjectorExceptionTest\TestClassNoParams', 'config' => ['invalidParam' => 10]]
+        	'testObject' => ['config' => ['invalidParam' => 10]]
     	])->get('testObject');
     }
 }

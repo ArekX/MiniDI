@@ -1,4 +1,6 @@
 <?php
 namespace InjectorExceptionTest;
 
-class TestClassNoParams {}
+class TestClassNoParams
+{
+}
