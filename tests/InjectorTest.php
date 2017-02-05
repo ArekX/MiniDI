@@ -293,4 +293,88 @@ class InjectorTest extends \InjectorTest\TestCase
         $injector = Injector::create()->setParent($parentInjector);
         $this->assertFalse($injector->has('test'));
     }
+
+    public function testCallableInsteadOfClassName()
+    {
+        $injector = Injector::create([
+            'testObject' => function() {
+                return new \InjectorTest\TestClassNoParams();
+            }
+        ]);
+
+        $this->assertInstanceOf(\InjectorTest\TestClassNoParams::class, $injector->get('testObject'));
+    }
+
+    public function testCallableInsteadOfClassConfig()
+    {
+        $injector = Injector::create([
+            'testObject' => '\InjectorTest\TestClass1Param',
+            'injectParam' => [
+                'closure' => function() {
+                    $object = new \InjectorTest\TestClassConfig();
+                    $object->param = "TEST STRING PARAM";
+                    $object->secondParam = "TEST NEXT PARAM";
+
+                    return $object;
+                },
+                'dependencies' => []
+            ]
+        ]);
+
+        $object = $injector->get('testObject');
+
+        $this->assertInstanceOf(\InjectorTest\TestClass1Param::class, $object);
+        $this->assertInstanceOf(\InjectorTest\TestClassConfig::class, $object->injectParam);
+        $this->assertEquals($object->injectParam->param, "TEST STRING PARAM");
+        $this->assertEquals($object->injectParam->secondParam, "TEST NEXT PARAM");
+    }
+
+    public function testCallableViaMethod()
+    {
+        $injector = Injector::create([
+            'testObject' => '\InjectorTest\TestClass1Param'
+        ]);
+
+        $injector->assignClosure('injectParam', function() {
+            $object = new \InjectorTest\TestClassConfig();
+            $object->param = "TEST STRING PARAM CLOSURE";
+            $object->secondParam = "TEST NEXT PARAM CLOSURE";
+
+            return $object;
+        }, []);
+
+        $object = $injector->get('testObject');
+
+        $this->assertInstanceOf(\InjectorTest\TestClass1Param::class, $object);
+        $this->assertInstanceOf(\InjectorTest\TestClassConfig::class, $object->injectParam);
+        $this->assertEquals($object->injectParam->param, "TEST STRING PARAM CLOSURE");
+        $this->assertEquals($object->injectParam->secondParam, "TEST NEXT PARAM CLOSURE");
+    }
+
+    public function testCallableViaMethodParams()
+    {
+        $injector = Injector::create([
+            'testObject' => '\InjectorTest\TestClass1Param'
+        ]);
+
+        $injector->assignClosure('injectParam', function($config, $dependencies, $depInjector) use($injector) {
+            $this->assertEquals($injector, $depInjector);
+            $this->assertEquals($config['config'], 'param');
+            $this->assertEquals($dependencies['param'], 'freeValue');
+
+            $object = new \InjectorTest\TestClassConfig();
+            $object->secondParam = "TEST NEXT PARAM CLOSURE";
+
+            return $object;
+        }, ['param' => 'freeValue'], ['config' => 'param']);
+
+        $injector->assignValue('freeValue', "test");
+
+        $object = $injector->get('testObject');
+
+        $this->assertInstanceOf(\InjectorTest\TestClass1Param::class, $object);
+        $this->assertInstanceOf(\InjectorTest\TestClassConfig::class, $object->injectParam);
+        $this->assertEquals($object->injectParam->param, "test");
+        $this->assertEquals($object->injectParam->secondParam, "TEST NEXT PARAM CLOSURE");
+    }
 }

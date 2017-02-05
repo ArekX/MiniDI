@@ -230,6 +230,56 @@ $injector = \ArekX\MiniDI\Injector::create([
 echo $injector->get('testObject')->customParam; // Outputs: Test String
 ```
 
+# Using closures
+
+You can use closures to instantiate your own classes when you need it you can either pass the closure directly or give
+it a bit more configuration by passing it in `'closure'` parameter in array:
+
+Direct simple usage:
+```php
+class TestClass1 {
+	public $dependsOnTestClass2;
+}
+
+class TestClass2 {}
+
+$injector = \ArekX\MiniDI\Injector::create([
+	'testObject' => function($config, $dependencies, $depInjector) {
+	    // You can now do some checking with $config, $dependencies and $depInjector.
+	    return new TestClass1();
+	},
+	'dependsOnTestClass2' => 'TestClass2'
+]);
+
+$testObject = $injector->get('testObject');
+
+echo $testObject->dependsOnTestClass2 instanceof TestClass2 ? 'Success!' : 'Fail'; // Outputs: Success!
+```
+
+Usage as array config:
+```php
+class TestClass1 {
+	public $dependsOnTestClass2;
+}
+
+class TestClass2 {}
+
+$injector = \ArekX\MiniDI\Injector::create([
+	'testObject' => [
+	    'closure' => function($config, $dependencies, $depInjector) {
+            // Now $dependencies has ['dependency'] as its contents.
+            return new TestClass1();
+        },
+        'dependencies' => ['dependency']
+	],
+	'dependsOnTestClass2' => 'TestClass2'
+]);
+
+$testObject = $injector->get('testObject');
+
+echo $testObject->dependsOnTestClass2 instanceof TestClass2 ? 'Success!' : 'Fail'; // Outputs: Success!
+```
+
 # Using values
 
 You can use any value in properties of object by setting the key. All classes which are
@@ -296,6 +346,7 @@ After injector is created you can pass additional configuration to it via method
 * `Injector::merge(['dependency' => 'Class'])` This will merge current injectors (and overwrite existing) configuration for this key.
 * `Injector::assign('key', 'Class')` or `Injector::assign('key', ['class' => 'SomeClass'])` will set the configuration for that specific key with configuration specified in the array.
 * `Injector::assignClass('key', 'ClassName', ['classDependency1'], $injector)` assigns class configuration for that key. Dependency and Injector parameters are optional.
+* `Injector::assignClosure('key', function($config, $dependencies, $depInjector) {}, ['classDependency1'], $injector)` assigns closure configuration for that key. This closure is called to retrieve a new instance of class.
 * `Injector::assignValue('key', "some value")` assigns key to be a value.
 * `Injector::setParent($parentInjector)` sets parent injector of this injector. When this parent is set, Injector will call `Injector::get()` of the parent if it cannot find resolution for specified key.
 

@@ -79,6 +79,10 @@ class Injector
         foreach ($assignments as $key => $config) {
             $config = is_string($config) ? ['class' => $config, 'config' => [], 'injector' => null] : $config;
 
+            if (is_callable($config)) {
+                $config = ['closure' => $config];
+            }
+
             if (empty($config['injector'])) {
                 $config['injector'] = $newInjector;
             }
@@ -125,7 +129,7 @@ class Injector
             return $this->sharedObjects[$key];
         }
 
-        $class = $this->assignments[$key]['class'];
+        $class = !empty($this->assignments[$key]['class']) ? $this->assignments[$key]['class'] : null;
         $injector = $this->assignments[$key]['injector'];
 
         if ($injector === null) {
@@ -138,98 +142,46 @@ class Injector
             }
         }
 
-        $this->pushDependency([$class, $key]);
-        $oldStack = $injector->dependencyStack;
-        $injector->dependencyStack = $this->dependencyStack;
-
         $object = $this->makeInstance($key, $injector);
 
-        $injector->dependencyStack = $oldStack;
-        $this->popDependency();
 
         return $object;
+
     }
 
     /**
      * Makes a new instance of $class.
      *
-     * If $dependencies is null, injector will consider all public properties of this class to be dependency keys
-     * which will be filled by classes.
-     *
-     * If $dependencies is array, injector will fill only those public properties. Array can be in following formats:
-     * As simple array:
-     * ```php
-     *  // This will set class property or call setter of the same name to defined dependency.
-     * ['dependency1', 'dependency2', ... ]
-     * ```
-     *
-     * Or as map array:
-     * ```php
-     * // This will set class property or call setter of name specified by key to a dependency specified by value.
-     * ['classProperty1' => 'dependency1', 'classProperty2' => 'dependency2', ...]
-     * ```
-     *
-     * Or combined:
-     * ```php
-     * ['dependency1', 'classProperty' => 'dependency2']
-     * ```
-     *
-     * If $dependencies is string, then a method of that name will be called from class instance, that method
-     * should return an array in format explained above, and injector will use that array to resolve dependencies.
-     *
-     * If $dependencies is callable, then injector will call that callable passing instance and itself. That
-     * callable needs to return an array in format explained above and injector will use that array to resolve
-     * dependencies.
-     *
-     * Callable is in following format:
-     * ```php
-     * function($instance, $injector) {
-     *    return ['dependency1', 'classParam' => 'dependency2'] // Array format as defined above.
-     * }
-     * ```
      *
      * @param $class string Class name which will be created.
      * @param Injector $dependencyInjector Injector which will be used to handle dependencies of this instance.
      * @return mixed Instance of class defined by $class parameter.
      * @throws InjectablePropertyException
      * @throws InvalidConfigurationException
+     * @see Injector::resolveInstanceDependencies()
      */
     protected function makeInstance($key, Injector $dependencyInjector)
     {
-        $class = $this->assignments[$key]['class'];
+        $class = !empty($this->assignments[$key]['class']) ? $this->assignments[$key]['class'] : $this->assignments[$key]['closure'];
+
         $config = $this->assignments[$key]['config'];
         $dependencies = $this->assignments[$key]['dependencies'];
 
+        if (is_callable($class)) {
+            $instance = $class($config, $dependencies, $dependencyInjector);
+        } else {
+            $instance = new $class($config);
+        }
+
+        $this->pushDependency([get_class($instance), $key]);
+
         /** @var object $instance */
-        $instance = new $class($config);
 
         if (!empty($this->assignments[$key]['shared'])) {
             $this->sharedObjects[$key] = $instance;
         }
 
-        if ($dependencies === null) {
-            $dependencies = array_keys(get_object_vars($instance));
-        } elseif (is_string($dependencies)) {
-            $dependencies = $instance->{$dependencies}();
-        } elseif (is_callable($dependencies)) {
-            $dependencies = $dependencies($instance, $dependencyInjector);
-        }
-
-        foreach ($dependencies as $property => $injectorProperty) {
-            if (is_numeric($property)) {
-                $property = $injectorProperty;
-            }
-
-            $methodName = 'set' . ucfirst($property);
-
-            if (method_exists($instance, $methodName)) {
-                $instance->{$methodName}($dependencyInjector->get($injectorProperty));
-            } elseif (property_exists($instance, $property)) {
-                $instance->{$property} = $dependencyInjector->get($injectorProperty);
-            } else {
-                throw new InjectablePropertyException($property, $class);
-            }
-        }
+        $this->resolveInstanceDependencies($instance, $dependencies, $dependencyInjector);
 
         if (!empty($this->assignments[$key]['runAfterInit'])) {
             $instance->{$this->assignments[$key]['runAfterInit']}();
@@ -280,7 +232,7 @@ class Injector
      * @param $class string Class name
      * @param $dependencies null|array|string|callable Dependencies of this class
      * @param array $config Configuration which will be passed to created $class.
-     * @param Injector|array $injector
+     * @param null|Injector|array $injector
      * @see Injector::makeInstance()
      *
      * @return $this
@@ -289,6 +241,26 @@ class Injector
     {
         return $this->assign($key, [
             'class' => $class,
+            'config' => $config,
+            'injector' => $injector,
+            'dependencies' => $dependencies
+        ]);
+    }
+
+    /**
+     * Assigns closure for instance resolution.
+     *
+     * @param $key string
+     * @param $closure callable
+     * @param null|array|string|callable $dependencies
+     * @param array $config
+     * @param null|array|Injector $injector
+     * @return Injector
+     */
+    public function assignClosure($key, $closure, $dependencies = null, $config = [], $injector = null)
+    {
+        return $this->assign($key, [
+            'closure' => $closure,
             'config' => $config,
             'injector' => $injector,
             'dependencies' => $dependencies
@@ -356,12 +328,17 @@ class Injector
      *
      *
      * @param $key
-     * @param $config
+     * @param array|string|callable $config
      * @throws InvalidConfigurationException
      * @return $this
      */
     public function assign($key, $config)
     {
+        if (is_callable($config)) {
+            $this->assignments[$key] = $config;
+            return $this;
+        }
+
         $config = is_string($config) ? ['class' => $config, 'config' => [], 'injector' => null] : $config;
 
         if (array_key_exists('value', $config)) {
@@ -369,8 +346,12 @@ class Injector
             return $this;
         }
 
-        if (empty($config['class'])) {
-            throw new InvalidConfigurationException($config, "Class must be set for key {$key}.");
+        if (empty($config['class']) && empty($config['closure'])) {
+            throw new InvalidConfigurationException($config, "Class or closure must be set for key {$key}.");
+        }
+
+        if (isset($config['class'])) {
+            $config['class'] = (new \ReflectionClass($config['class']))->getName();
         }
 
         if (!isset($config['config'])) {
@@ -545,5 +526,81 @@ class Injector
         }
 
         return array_pop($this->dependencyStack);
+    }
+
+    /**
+     * Resolves dependencies of one instance.
+     *
+     * If $dependencies is null, injector will consider all public properties of this class to be dependency keys
+     * which will be filled by classes.
+     *
+     * If $dependencies is array, injector will fill only those public properties. Array can be in following formats:
+     * As simple array:
+     * ```php
+     *  // This will set class property or call setter of the same name to defined dependency.
+     * ['dependency1', 'dependency2', ... ]
+     * ```
+     *
+     * Or as map array:
+     * ```php
+     * // This will set class property or call setter of name specified by key to a dependency specified by value.
+     * ['classProperty1' => 'dependency1', 'classProperty2' => 'dependency2', ...]
+     * ```
+     *
+     * Or combined:
+     * ```php
+     * ['dependency1', 'classProperty' => 'dependency2']
+     * ```
+     *
+     * If $dependencies is string, then a method of that name will be called from class instance, that method
+     * should return an array in format explained above, and injector will use that array to resolve dependencies.
+     *
+     * If $dependencies is callable, then injector will call that callable passing instance and itself. That
+     * callable needs to return an array in format explained above and injector will use that array to resolve
+     * dependencies.
+     *
+     * Callable is in following format:
+     * ```php
+     * function($instance, $injector) {
+     *    return ['dependency1', 'classParam' => 'dependency2'] // Array format as defined above.
+     * }
+     * ```
+     *
+     * @param $instance
+     * @param $dependencies
+     * @param Injector $dependencyInjector
+     * @throws InjectablePropertyException
+     */
+    protected function resolveInstanceDependencies($instance, $dependencies, Injector $dependencyInjector)
+    {
+        $oldStack = $dependencyInjector->dependencyStack;
+        $dependencyInjector->dependencyStack = $this->dependencyStack;
+
+        if ($dependencies === null) {
+            $dependencies = array_keys(get_object_vars($instance));
+        } elseif (is_string($dependencies)) {
+            $dependencies = $instance->{$dependencies}();
+        } elseif (is_callable($dependencies)) {
+            $dependencies = $dependencies($instance, $dependencyInjector);
+        }
+
+        foreach ($dependencies as $property => $injectorProperty) {
+            if (is_numeric($property)) {
+                $property = $injectorProperty;
+            }
+
+            $methodName = 'set' . ucfirst($property);
+
+            if (method_exists($instance, $methodName)) {
+                $instance->{$methodName}($dependencyInjector->get($injectorProperty));
+            } elseif (property_exists($instance, $property)) {
+                $instance->{$property} = $dependencyInjector->get($injectorProperty);
+            } else {
+                throw new InjectablePropertyException($property, get_class($instance));
+            }
+        }
+
+        $dependencyInjector->dependencyStack = $oldStack;
+        $this->popDependency();
     }
 }
